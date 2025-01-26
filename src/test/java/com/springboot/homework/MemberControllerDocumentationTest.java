@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
+import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
@@ -23,6 +24,13 @@ import java.util.List;
 
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
+import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessRequest;
+import static org.springframework.restdocs.operation.preprocess.Preprocessors.preprocessResponse;
+import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
+import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
+import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
@@ -87,7 +95,7 @@ public class MemberControllerDocumentationTest {
         // 결과를 표시할 url 를 명시해줘야 하며, get 매핑은 body 의 데이터를 담지 말아야 한다는 것에 주의해야 합니다.
 
         ResultActions actions = mockMvc.perform(
-                        get("/v11/members/"+memberId)
+                get("/v11/members/"+memberId)
                         .accept(MediaType.APPLICATION_JSON)
         );
 
@@ -96,7 +104,24 @@ public class MemberControllerDocumentationTest {
         //요청한 데이터가 알맞게 들어 왔는지 검증을 해줘야 하는 것입니다.
         // 데이터의 형식을 검증하기 위해 데이터에서 고유한 값이 email을 이용하면 됩니다.
         actions.andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.email").value(response.getEmail()));
+                .andExpect(jsonPath("$.data.memberId").value(memberId))
+                .andExpect(jsonPath("$.data.email").value(response.getEmail()))
+                .andDo(
+                        document("get-member",
+                                preprocessRequest(),
+                                preprocessResponse(),
+                                responseFields(
+                                        List.of(
+                                                fieldWithPath("data").type(JsonFieldType.OBJECT).description("데이터").optional(),
+                                                fieldWithPath("data.memberId").type(JsonFieldType.NUMBER).description("식별자"),
+                                                fieldWithPath("data.email").type(JsonFieldType.STRING).description("이메일"),
+                                                fieldWithPath("data.name").type(JsonFieldType.STRING).description("이름"),
+                                                fieldWithPath("data.phone").type(JsonFieldType.STRING).description("번호"),
+                                                fieldWithPath("data.memberStatus").type(JsonFieldType.STRING).description("회원 상태"),
+                                                fieldWithPath("data.stamp").type(JsonFieldType.NUMBER).description("스탬프")
+                                        )
+                                )
+                        ));
 
     }
 
@@ -114,7 +139,7 @@ public class MemberControllerDocumentationTest {
                 new MemberDto.Response(2L, "fff44@gmail.com", "김라뗴", "010-4444-5555", Member.MemberStatus.MEMBER_ACTIVE,new Stamp()),
                 new MemberDto.Response(3L, "zxc878@gmail.com", "라라뗴", "010-6767-5555", Member.MemberStatus.MEMBER_ACTIVE,new Stamp()),
                 new MemberDto.Response(4L, "koko7878@gmail.com", "오라뗴", "010-7878-5555", Member.MemberStatus.MEMBER_ACTIVE,new Stamp())
-                );
+        );
 
         //given
         given(memberService.findMembers(Mockito.anyInt(),Mockito.anyInt())).willReturn(page);
@@ -132,7 +157,29 @@ public class MemberControllerDocumentationTest {
         //then
 
         actions .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(responses.size()));
+                .andExpect(jsonPath("$.data.length()").value(responses.size()))
+                .andDo(document("get-members",
+                        preprocessRequest(),
+                        preprocessResponse(),
+                        responseFields(
+                                List.of(
+                                        fieldWithPath("data").type(JsonFieldType.ARRAY).description("결과").optional(),
+                                        fieldWithPath("data[].memberId").type(JsonFieldType.NUMBER).description("회원 식별자"),
+                                        fieldWithPath("data[].email").type(JsonFieldType.STRING).description("이메일"),
+                                        fieldWithPath("data[].name").type(JsonFieldType.STRING).description("이름"),
+                                        fieldWithPath("data[].phone").type(JsonFieldType.STRING).description("번호"),
+                                        fieldWithPath("data[].memberStatus").type(JsonFieldType.STRING).description("회원 상태"),
+                                        fieldWithPath("data[].stamp").type(JsonFieldType.NUMBER).description("스탬프"),
+                                        fieldWithPath("pageInfo").type(JsonFieldType.OBJECT).description("페이지 정보"),
+                                        fieldWithPath("pageInfo.page").type(JsonFieldType.NUMBER).description("페이지 번호"),
+                                        fieldWithPath("pageInfo.size").type(JsonFieldType.NUMBER).description("페이지 사이즈"),
+                                        fieldWithPath("pageInfo.totalElements").type(JsonFieldType.NUMBER).description("전체 요소 수"),
+                                        fieldWithPath("pageInfo.totalPages").type(JsonFieldType.NUMBER).description("전체 페이지 수")
+                                )
+                        )
+
+                ));
+
 
     }
 
@@ -148,12 +195,17 @@ public class MemberControllerDocumentationTest {
         //given -> delete 에서는 given 설정이 업습니다.
 
         //when
-        doNothing().when(memberService).deleteMember(memberId);
+        doNothing().when(memberService).deleteMember(Mockito.anyLong());
         ResultActions actions = mockMvc.perform(
                 delete("/v11/members/"+memberId)
-                        .accept(MediaType.APPLICATION_JSON)
-        );
+                        .accept(MediaType.APPLICATION_JSON));
         //then
-        actions.andExpect(status().isNoContent());
+        actions.andExpect(status().isNoContent())
+                .andDo(document(
+                        "delete-member",
+                        preprocessRequest(),
+                        preprocessResponse()
+
+                ));
     }
 }
